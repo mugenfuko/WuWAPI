@@ -18,7 +18,7 @@ class CharacterModel(db.Model):
     weapon: Mapped[str] = mapped_column(nullable=False)
 
     def __repr__(self):
-        return f"Character(name= {name}, rarity= {rarity}, element= {element}, weapon= {weapon})"
+        return f"Character(name= {self.name}"
 
 characters = {
     "1": {
@@ -30,18 +30,8 @@ characters = {
         }
 }
 
-carte = {
-        "id": 1,
-        "name": "Cartethyia",
-        "rarity": 5,
-        "element": "aero",
-        "weapon": "sword"
-    }
-
-with app.app_context():
-    db.create_all()
-
 class CharacterSchema(Schema):
+    id = fields.Int()
     name = fields.Str(required=True)
     rarity = fields.Int(required=True)
     element = fields.Str(required=True)
@@ -63,7 +53,7 @@ class Character(Resource):
         abort_if_character_doesnt_exist(char_id)
         return characters[char_id], 200
 
-    def put(self, char_id):
+    def post(self, char_id):
         abort_if_character_exists(char_id)
         json_data = request.get_json()
         try:
@@ -71,6 +61,15 @@ class Character(Resource):
         except ValidationError as err:
             return err.messages, 422
         result = schema.dump(data)
+        character = CharacterModel(
+            id = int(char_id),
+            name = result["name"],
+            rarity = result["rarity"],
+            element = result["element"],
+            weapon = result["weapon"]
+        )
+        db.session.add(character)
+        db.session.commit()
         characters[char_id] = result
         return characters[char_id], 201
 
@@ -85,6 +84,9 @@ class CharacterList(Resource):
 
 api.add_resource(CharacterList, "/characters")
 api.add_resource(Character, "/characters/<char_id>")
+
+with app.app_context():
+    db.create_all()
 
 if __name__ == "__main__":
     app.run(debug=True)
