@@ -1,6 +1,8 @@
 from flask import Flask, request
-from flask_restful import Resource, Api, reqparse, abort
+from flask_restful import Resource, Api, abort
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
 from marshmallow import Schema, ValidationError, fields
 
 app = Flask(__name__)
@@ -9,23 +11,35 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
 
 class CharacterModel(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    rarity = db.Column(db.Integer, nullable=False)
-    element = db.Column(db.String(100), nullable=False)
-    weapon = db.Column(db.String(100), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False)
+    rarity: Mapped[int] = mapped_column(nullable=False)
+    element: Mapped[str] = mapped_column(nullable=False)
+    weapon: Mapped[str] = mapped_column(nullable=False)
 
     def __repr__(self):
         return f"Character(name= {name}, rarity= {rarity}, element= {element}, weapon= {weapon})"
 
 characters = {
     "1": {
+        "id": 1,
         "name": "Cartethyia",
         "rarity": 5,
         "element": "aero",
         "weapon": "sword"
         }
 }
+
+carte = {
+        "id": 1,
+        "name": "Cartethyia",
+        "rarity": 5,
+        "element": "aero",
+        "weapon": "sword"
+    }
+
+with app.app_context():
+    db.create_all()
 
 class CharacterSchema(Schema):
     name = fields.Str(required=True)
