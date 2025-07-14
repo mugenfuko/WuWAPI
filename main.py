@@ -20,16 +20,6 @@ class CharacterModel(db.Model):
     def __repr__(self):
         return f"Character(name= {self.name}"
 
-characters = {
-    "1": {
-        "id": 1,
-        "name": "Cartethyia",
-        "rarity": 5,
-        "element": "aero",
-        "weapon": "sword"
-        }
-}
-
 class CharacterSchema(Schema):
     id = fields.Int()
     name = fields.Str(required=True)
@@ -39,25 +29,15 @@ class CharacterSchema(Schema):
 
 schema = CharacterSchema()
 
-def abort_if_character_doesnt_exist(char_id):
-    if char_id not in characters:
-        abort(404, message="Character not found")
-
-def abort_if_character_exists(char_id):
-    if char_id in characters:
-        abort(404, message="Character already exists")
-
 class Character(Resource):
 
     def get(self, char_id):
-        abort_if_character_doesnt_exist(char_id)
-        return characters[char_id], 200
+        character = schema.dump(db.session.get(CharacterModel, char_id))
+        return character, 200
 
     def post(self, char_id):
-        abort_if_character_exists(char_id)
-        json_data = request.get_json()
         try:
-            data = schema.load(json_data)
+            data = schema.load(request.get_json())
         except ValidationError as err:
             return err.messages, 422
         result = schema.dump(data)
@@ -70,13 +50,12 @@ class Character(Resource):
         )
         db.session.add(character)
         db.session.commit()
-        characters[char_id] = result
-        return characters[char_id], 201
+        return result, 201
 
     def delete(self, char_id):
-        abort_if_character_doesnt_exist(char_id)
-        del characters[char_id]
-        return "", 204
+        db.session.delete(db.session.get(CharacterModel, char_id))
+        db.session.commit()
+        return {}, 204
 
 class CharacterList(Resource):
     def get(self):
@@ -87,6 +66,16 @@ api.add_resource(Character, "/characters/<char_id>")
 
 with app.app_context():
     db.create_all()
+
+characters = {
+    "1": {
+        "id": 1,
+        "name": "Cartethyia",
+        "rarity": 5,
+        "element": "aero",
+        "weapon": "sword"
+        }
+}
 
 if __name__ == "__main__":
     app.run(debug=True)
