@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_restful import Resource, Api, abort
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Integer, String
@@ -17,8 +17,8 @@ class CharacterModel(db.Model):
     element: Mapped[str] = mapped_column(nullable=False)
     weapon: Mapped[str] = mapped_column(nullable=False)
 
-    def __repr__(self):
-        return f"Character(name= {self.name}"
+    """def __repr__(self):
+        return f"Character(name= {self.name}"""
 
 class CharacterSchema(Schema):
     id = fields.Int()
@@ -31,26 +31,40 @@ schema = CharacterSchema()
 
 class Character(Resource):
 
-    def get(self, char_id):
-        character = schema.dump(db.session.get(CharacterModel, char_id))
-        return character, 200
-
-    def post(self, char_id):
+    def serialize_request(self, request):
         try:
-            data = schema.load(request.get_json())
+            raw_data = schema.load(request.get_json())
         except ValidationError as err:
             return err.messages, 422
-        result = schema.dump(data)
+        return schema.dump(raw_data)
+    
+    def post(self, char_id):
+        char_data = self.serialize_request(request)
         character = CharacterModel(
             id = int(char_id),
-            name = result["name"],
-            rarity = result["rarity"],
-            element = result["element"],
-            weapon = result["weapon"]
+            name = char_data["name"],
+            rarity = char_data["rarity"],
+            element = char_data["element"],
+            weapon = char_data["weapon"]
         )
         db.session.add(character)
         db.session.commit()
-        return result, 201
+        return char_data, 201
+
+    def get(self, char_id):
+        character = schema.dump(db.session.get(CharacterModel, char_id))
+        if not character:
+            return {}, 404
+        return character, 200
+
+    def put(self, char_id):
+        char_data = self.serialize_request(request)
+        character = db.session.get(CharacterModel, char_id)
+        character.name = char_data["name"]
+        character.rarity = char_data["rarity"]
+        character.element = char_data["element"]
+        character.weapon = char_data["weapon"]
+        db.session.commit()
 
     def delete(self, char_id):
         db.session.delete(db.session.get(CharacterModel, char_id))
@@ -59,7 +73,14 @@ class Character(Resource):
 
 class CharacterList(Resource):
     def get(self):
-        return characters
+        character_list = {}
+        all_characters = db.session.execute(db.select(CharacterModel).order_by(CharacterModel.id)).scalars().all()
+        for char in all_characters:
+            char = schema.dump(char)
+            char_id = char["id"]
+            del char["id"]
+            character_list[char_id] = char
+        return character_list
 
 api.add_resource(CharacterList, "/characters")
 api.add_resource(Character, "/characters/<char_id>")
@@ -67,7 +88,7 @@ api.add_resource(Character, "/characters/<char_id>")
 with app.app_context():
     db.create_all()
 
-characters = {
+characters_dict_example = {
     "1": {
         "id": 1,
         "name": "Cartethyia",
